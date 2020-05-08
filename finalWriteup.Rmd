@@ -1,0 +1,273 @@
+---
+title: "Hall of Fame: Do the best get in?"
+author: "Group 11: Jeremy Miranda, Jacob Schwenneker, Mason Ohnemus, Abe Stephenson"
+date: "5/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+Does the National Football League Hall of Fame in Canton, Ohio actually have a problem with wide receivers? According to an article published by FiveThirtyEight.com entitled “The Football Hall Of Fame Has A Receiver Problem,” the answer is a resounding yes. The Hall of Fame has a disproportionate number of wide receivers enshrined in the hallowed halls. Group 11 decided to dive a little bit deeper to check if the same conclusions were reached.
+          
+Starting out the project, a database needed to be created. We initially found a website that we wanted to scrape for data but quickly found that it was paywalled and we had to find a different source. Two good sources were used to make the initial database. First, a data frame was pulled from the FiveThirtyEight package in R entitled “NFLwr_hist” that featured player names and three stats that the researchers of the article created. The other source used to make the database was Pro-Football-Reference.com, a website with a running record of NFL statistics throughout history. From using this website's filtering functionality, two tables were created: a record of all Hall of Fame players and a list of all players with a career Approximate Value of at least 10. From there, with a good amount of data cleaning, we were able to join both the datasets to create the master dataset we would use throughout the project.  
+
+## HOF Positional Dataset
+
+Once we had the hall of fame database we realized that we needed to trim down player positions. Unfortunately there are a lot specialty positions that are too niche to analyze in this context and so we lumped them together into larger categories. For example, "HB" stands for "half-back" and there are also "tail-backs" but in the end these positions are all very similar to running backs, and so we condensed those positions into "RB". 
+
+``` {r positionalHOF}
+##NOTE: THIS SECTION COMMENTED BECAUSE IT WAS PROGRAMMED ON A DIFFERENT COMPUTER AND THE FILEPATHS DO NOT WORK ON THIS COMPUTER AND THEREFORE THE DOCUMENT WILL NOT KNIT WITH THEM AS IS. 
+## Goal: get consistent positions and hall of fame info
+# library(rvest)
+# library(tidyverse)
+# library(dplyr)
+# library(readxl)
+
+#HallofFame <- read_excel("C:/Users/jerem/Desktop/Spring Semester 2020/STAT480/HallofFame.xlsx")
+
+# HallofFame2 <- HallofFame %>%
+#   mutate(Pos = str_replace(Pos, "DG", "OL")) %>%
+#   mutate(Pos = str_replace(Pos, "TB", "RB")) %>%
+#   mutate(Pos = str_replace(Pos, "T", "OL")) %>%
+#   mutate(Pos = str_replace(Pos, "G", "OL")) %>%
+#   mutate(Pos = str_replace(Pos, "C", "OL")) %>%
+#   mutate(Pos = str_replace(Pos, "E", "Flex")) %>%
+#   mutate(Pos = str_replace(Pos, "OLFlex", "TE")) %>%
+#   mutate(Pos = str_replace(Pos, "DFlex", "DE")) %>%
+#   mutate(Pos = str_replace(Pos, "DOL", "DT")) %>%
+#   mutate(Pos = str_replace(Pos, "HB", "RB")) %>%
+#   mutate(Pos = str_replace(Pos, "FL", "Flex")) %>%
+#   mutate(Pos = str_replace(Pos, "SFlex", "WR")) %>%
+#   mutate(Pos = str_replace(Pos, "WB", "FB"))
+
+#write.csv(HallofFame2, "C:/Users/jerem/Desktop/Spring Semester 2020/STAT480/HoFPlayer_Position.csv")
+```
+
+## Dataset Cleaning
+
+Further cleaning was required before combining data sets. Here we had the 538 set and the pro-football-reference that included players with an AV above 10. Since our data tables came from various people and sources we cut out columns and renamed columns so that they were consistent across all data sets. 
+
+``` {r datasetCleaning}
+## goal: homogenize various datasets to one set to work with and analyze
+
+# Imports
+library(fivethirtyeight)
+library(tidyverse)
+library(ggplot2)
+
+#538 data set
+library(fivethirtyeight)
+wr = nflwr_hist
+##View(wr)
+
+# our data sets, #1 
+#REPLACE WITH YOUR OWN FILEPATH!
+football = read_csv("~/classes/2020spring-480stat/project/football.csv")
+complete = football
+head(complete)
+
+#out data sets #2 
+#REPLACE WITH YOUR OWN FILEPATH!
+hofPositions = read_csv("~/classes/2020spring-480stat/project/HoFPlayer_Position_updated.csv")
+hofPositions = select(hofPositions, -X1)
+hofPositions = hofPositions %>%
+  mutate(hof = TRUE)
+
+
+#renaming "name" column so that we can join tables
+wr = rename(wr, name = player_name)
+complete = rename(complete, name = Player)
+hofPositions = rename(hofPositions, name = Player)
+complete = select(complete, -Rank)
+
+#Clean off asterisks because we will cross reference HOF players later
+complete$name = gsub( "\\*", "", as.character(complete$name) )
+```
+
+## Joining
+
+Then as we were a bit unsure of which joins would give us the most well rounded dataset we made a large number of them from different joins and compared them to see which was the best overall. Additionally we initially were going to remove players who played before the two major football leagues merged into the NFL, however we later realized this was unnecessary. There are also a few lines checking for name conflicts and removing extraneously added rows/columns. 
+
+``` {r joining}
+
+# # We only want post merger players, to deal with one less confounding variable
+# nfl = complete %>%
+#   filter(From > 1969)
+
+# ## try all the joins because I don't fully understand the difference between them 
+# #left join
+# leftNfl = nfl %>%
+#   left_join(wr, by = "name")
+# 
+# #right join
+# rightNfl = nfl %>%
+#   right_join(wr, by = "name")
+# View(rightNfl)
+# 
+# #inner join
+# innerNfl = nfl %>%
+#   inner_join(wr, by = "name")
+
+# #full join
+# fullNfl = nfl %>%
+#   full_join(wr, by = "name")
+
+# # find players where there was a name conflict
+# nameConflict = fullNfl[grep("2.", fullNfl$name),]
+# 
+# write_csv(fullNfl, "~/classes/nfl.csv")
+# write_csv(nameConflict, "~/classes/nflNameDuplicates.csv")
+
+## attempting to see differences between the joined tables
+#install.packages(compareDF)
+#library(compareDF)
+#differences = compare_df(leftNfl, rightNfl, c("name"))
+
+#Want to make sure that chopping out the pre 1970 players is not making too big an impact
+allFootball = complete %>%
+  full_join(wr, by = "name")
+
+# find players where there was a name conflict
+nameConflictAll = allFootball[grep("2.", allFootball$name),]
+
+#bcs statistic is only present in 1/15 cases, removing it
+allFnobcs = select(allFootball, -bcs_rating)
+#nflnobcs = select(fullNfl, -bcs_rating)
+
+#Want to see players that appear in both 538 and our data set
+naFreeAll = na.omit(allFnobcs) #2426 observations
+#naFreeNFL = na.omit(nflnobcs)
+
+
+#join set with positions set
+completeData = naFreeAll %>% 
+  full_join(hofPositions, by = c("name"="name")) #2616
+
+#"PB" = "PB", "AP1" = "AP1", "AV" = "AV"
+
+completeData$Pos = as.character(completeData$Pos)
+str(completeData)
+
+completeData = completeData %>%
+  filter(!(is.na(PB.x)))
+
+#remove bad join columns
+completeData = select(completeData, - AP1.y)
+completeData = select(completeData, - PB.y)
+completeData = select(completeData, - AV.y)
+
+#changing na to false
+completeData$hof = completeData$hof %>%
+  replace_na(FALSE)
+
+# completeData2 = allFnobcs %>%
+#   full_join(hofPositions, by = c("name"="name", "PB" = "PB", "AP1" = "AP1", "AV" = "AV"))
+# 
+# completeData3 = complete %>%
+#   full_join(hofPositions, by = c("name"="name", "PB" = "PB", "AP1" = "AP1", "AV" = "AV"))
+
+
+# CLEANING REPEATS FROM JOIN
+completeData = completeData %>%
+  filter(!(pfr_player_id == "SmitSt00"))
+
+```
+
+## Analysis and Visualization
+
+Once we were happy with our dataset we set about trying to pull out interesting facts and create visualizations. We had two main focuses. One was to compare hall of famers to non hall of famers. We also originally wanted to look at wide receivers vs. non wide receivers, which we did some of but found the hall of fame comparison more compelling and more useful in our analysis. One of the issue we ran into was how 538 defined wide receivers which we will mention in the considerations section later on. 
+
+``` {r visualizationAndStats}
+## goal: pull out interesting facts, statistics and visualizations for presentation. 
+
+completeData %>%
+  filter(hof == TRUE) %>%
+  filter(Pos == "WR") %>%
+  ggplot(aes(x = AV.x)) +
+  geom_histogram()
+
+#boxplot comparing AV by position
+completeData %>%
+  filter(hof == TRUE)%>%
+  ggplot(aes(x = Pos, y = AV.x)) + 
+  geom_boxplot()
+
+# summary stats for non-wr
+completeData %>%
+  filter(hof == TRUE)%>%
+  filter(Pos != "WR")%>%
+  summary()
+
+# summary stats for WR
+completeData %>%
+  filter(hof == TRUE)%>%
+  filter(Pos == "WR")%>%
+  summary()
+
+
+completeData %>%
+  ggplot(aes(x = hof, y = AV.x, fill = hof)) +
+  geom_boxplot()
+
+#remove non-eligible players
+#mutate new eligibility column
+completeData = completeData %>%
+  mutate(eligible = ifelse(To < 2015, TRUE, FALSE))
+
+completeData %>%
+  filter(eligible == TRUE) %>%
+  ggplot(aes(x = hof, y = AV.x, fill = hof)) +
+  geom_boxplot()
+
+completeData %>%
+  filter(eligible == TRUE) %>%
+  ggplot(aes(x = hof, y = career_try, fill = hof)) +
+  geom_boxplot()
+
+completeData %>%
+  filter(eligible == TRUE) %>%
+  ggplot(aes(x = hof, y = career_wowy, fill = hof)) +
+  geom_boxplot()
+
+completeData %>%
+  filter(eligible == TRUE) %>%
+  ggplot(aes(x = hof, y = career_ranypa, fill = hof)) +
+  geom_boxplot()
+
+##wide receivers only
+completeData %>%
+  filter(eligible == TRUE) %>%
+  filter(Pos == "WR")%>%
+  ggplot(aes(x = hof, y = career_try, fill = hof))
+```
+
+## What do these statistics mean?
+
+Approximate Value (AV), a metric created by Pro-Football-Reference.com mentioned above, attempts to place a value for all football players to compare value provided for players from different positions. For instance, comparing a defensive end and a wide receiver is difficult to do utilizing traditional metrics. AV aims to make the comparison easier by providing one comparable number.
+
+True Receiving Yards (TRY) is the first metric created by the FiveThirtyEight researcher. This number aims to define how many yards a player was truly worth to his team. Placing appropriate responsibility for a completed pass on the quarterback and wide receiver is tough to place. TRY essentially shows the air yards of completed passes for the receiver with adjustments for schedule length and the passing environment, claiming that this new statistic is more indicative than classic receiving yard. Jerry Rice, a wide receiver predominantly with the San Francisco 49ers and widely regarded as the best receiver in NFL history, is placed at the top of the career TRY leaderboard, which is what should be expected.
+
+Receiving Adjusted Net Yards Per Attempt (RANYPA) is an adjustment placed upon a statistic that was already produced. Net Yards Per Attempt accounts for all yardage and looks at the total net gain based off of each attempt given to a player. FiveThirtyEight focused strictly on receiving yards and then adjusted the number to the average passing attack of the league at that time and all of the teams that the athlete played for in his career. This number was normalized about zero to find the difference between the receiver and a “league average” receiver.
+
+With Or Without You (WOWY) essentially takes RANYPA a step further to find how much a player was truly worth to his team. WOWY was created by finding the difference from the expected outcome based on the team’s quarterback and adjusted for the receiver’s age from what was actually produced. This number is also normalized about zero with the vast majority of receivers falling between one and negative one. Looking at the data given by FiveThirtyEight, this statistic is greatly impacted by small samples of career receptions by the players, most notably the player not in the Hall of Fame with a career WOWY below -30.
+ 
+ 
+## Considerations 
+
+This project showed the importance of having a quality data set. The FiveThirtyEight data package, initially described as only containing wide receivers, ended up including any player that had at least one career catch, opening the door to players of almost any position. As an example, Peyton Manning, the great quarterback for the Colts and Broncos, was included along with his father Archie as they both had at least one career reception. However, Peyton’s brother Eli, a fellow quarterback, had nary a catch in his career, which led to him being excluded. Additionally, the outlier discussed in the WOWY discussion was a quarterback with two career receptions going for -10 career receiving yards. These are not the players that should be included in this data set, yet those players were still included.
+
+We were still able to make our comparisons and felt that we were seeing useful and meaningful trends in the data. However, we felt that because of 538's inconsistent definition of "wide receiver" we had to compare players who's real position was actually quarter back to wide receivers. This also caused us to shift our analysis towards hall of fame versus non hall of fame. 
+            
+## Takeaways
+
+Approximate Value proved to be an appropriate statistic to rate the career of players across positions. Comparing the AV by positions among players within the Hall of Fame showed appropriate levels across the positions. While there is no certain value that would deem a player “Hall of Fame-worthy,” AV still provides a good gauge for the overall strength of a player’s career.
+            
+Finally, quarterbacks and wide receivers generate raw numbers that make their Hall of Fame candidacy seem to be surefire, but advanced analytics does not always paint such a rosy picture. Through efficiency and other metrics, several players already in the Hall of Fame and others that seem to have a strong case for enshrinement actually appear to be deficient in comparison to other players. 
+
+Based on our analysis, 538's advanced metrics don't seem to be as effective as one might initially think. 538 should have come up with a better system for who they considered in their data, and their failure to do so detracts from the validity and efficacy of their analysis. Determining if the quarterback threw the receiver open and helped him pick up 15 more yards or if the receiver ran a crisp route to find a seam in the defense is quite difficult. As such, wide receivers gain an advantage for receiving the NFL’s highest honor: enshrinement in the Hall of Fame. To run down the best track toward enshrinement in Canton, Ohio, become a wide receiver in the National Football League.
+            
+
+
